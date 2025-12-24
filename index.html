@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Theory Trainer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    .menu { text-align: center; padding: 20px; }
+    .menu h2 { font-size: 1.8rem; margin-bottom: 10px; }
+    .menu p { font-size: 1.1rem; max-width: 500px; margin: 0 auto 20px; }
+    .menu-btn {
+      width: 100%;
+      max-width: 220px;
+      padding: 12px;
+      margin: 6px;
+      background: #ccc;
+      border: 1px solid #000;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .info-bar {
+      padding: 10px;
+      margin-bottom: 10px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      font-size: 1rem;
+      border: 1px solid #000;
+    }
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+    }
+    .board-wrapper {
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 2px solid #000;
+    }
+    .square {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .square.light { background: #fff; }
+    .square.dark { background: #aaa; }
+    .square.selected { background: #ff0 !important; }
+    .square.last-move { background: #ddd !important; }
+    .square.disabled { pointer-events: none; }
+    .piece {
+      width: 95%;
+      height: 95%;
+    }
+    .controls { margin-top: 12px; }
+    .btn {
+      padding: 10px 24px;
+      background: #ccc;
+      border: 1px solid #000;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .theory-message {
+      padding: 12px;
+      margin: 12px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      font-size: 0.95rem;
+      border: 1px solid #000;
+    }
+    .game-count {
+      font-size: 0.9rem;
+      margin-top: 6px;
+      text-align: center;
+    }
+    .end-summary {
+      padding: 12px;
+      margin: 12px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      font-size: 0.95rem;
+      border: 1px solid #000;
+    }
+    .game-list-item {
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #000;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+    .game-result { font-weight: bold; margin: 5px 0; }
+    .author-credit {
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    // Lichess CBurnett pieces — reliable and Kindle-friendly
+    const pieceImages = {
+      wp: "https://lichess.org/assets/piece/cburnett/wP.svg",
+      wr: "https://lichess.org/assets/piece/cburnett/wR.svg",
+      wn: "https://lichess.org/assets/piece/cburnett/wN.svg",
+      wb: "https://lichess.org/assets/piece/cburnett/wB.svg",
+      wq: "https://lichess.org/assets/piece/cburnett/wQ.svg",
+      wk: "https://lichess.org/assets/piece/cburnett/wK.svg",
+      bp: "https://lichess.org/assets/piece/cburnett/bP.svg",
+      br: "https://lichess.org/assets/piece/cburnett/bR.svg",
+      bn: "https://lichess.org/assets/piece/cburnett/bN.svg",
+      bb: "https://lichess.org/assets/piece/cburnett/bB.svg",
+      bq: "https://lichess.org/assets/piece/cburnett/bQ.svg",
+      bk: "https://lichess.org/assets/piece/cburnett/bK.svg",
+    };
+
+    class ChessTheoryApp {
+      constructor() {
+        this.game = new Chess();
+        this.playerColor = null;
+        this.aiSource = null;
+        this.selected = null;
+        this.lastMove = { from: null, to: null };
+        this.gameCount = 0;
+        this.lastAIMoveFEN = null;
+        this.playerMoves = 0;
+        this.topGames = [];
+        this.recentGames = [];
+        // All methods defined below
+        this.render(); // Called at end
+      }
+
+      renderMenu() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="menu">
+            <h2>Chess Theory Trainer</h2>
+            <p>Practice openings with real human play from game databases.<br>Choose your opponent level:</p>
+            <button id="masterBtn" class="menu-btn">Master Level</button>
+            <button id="lichessBtn" class="menu-btn">Club Player</button>
+            <div class="author-credit">Author: Srinivas Kulkarni</div>
+          </div>
+        `;
+        document.getElementById('masterBtn').addEventListener('click', () => this.selectSource('master'));
+        document.getElementById('lichessBtn').addEventListener('click', () => this.selectSource('lichess'));
+      }
+
+      renderColorChoice() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="menu">
+            <h2>Play As</h2>
+            <button id="whiteBtn" class="menu-btn">White</button>
+            <button id="blackBtn" class="menu-btn">Black</button>
+          </div>
+        `;
+        document.getElementById('whiteBtn').addEventListener('click', () => this.selectColor('w'));
+        document.getElementById('blackBtn').addEventListener('click', () => this.selectColor('b'));
+      }
+
+      render() {
+        if (!this.aiSource) {
+          this.renderMenu();
+        } else if (!this.playerColor) {
+          this.renderColorChoice();
+        } else {
+          this.renderBoard();
+          this.queryExplorer();
+        }
+      }
+
+      async queryExplorer() {
+        const fen = this.game.fen();
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=12';
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) return;
+          const data = await response.json();
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+          const countEl = document.getElementById('gameCount');
+          if (countEl) {
+            countEl.textContent = `Database: ${totalGames.toLocaleString()} games`;
+          }
+        } catch (e) {
+          console.error('Explorer query failed:', e);
+        }
+      }
+
+      renderBoard() {
+        const board = this.game.board();
+        const isFlipped = this.playerColor === 'b';
+        const renderedBoard = isFlipped ? board.slice().reverse().map(r => r.slice().reverse()) : board;
+        const ranks = isFlipped ? ['1','2','3','4','5','6','7','8'] : ['8','7','6','5','4','3','2','1'];
+        const files = isFlipped ? ['h','g','f','e','d','c','b','a'] : ['a','b','c','d','e','f','g','h'];
+
+        document.getElementById('app').innerHTML = `
+          <div class="game-container">
+            <div class="info-bar" id="status">${this.aiStatus || 'Your move'}</div>
+            <div style="display: flex; gap: 5px;">
+              <div style="display: flex; flex-direction: column; justify-content: space-around; height: 400px; font-size: 14px;">
+                ${ranks.map(r => `<div style="height: calc(100% / 8); display: flex; align-items: center;">${r}</div>`).join('')}
+              </div>
+              <div>
+                <div class="board-wrapper" id="board"></div>
+                <div style="display: flex; justify-content: space-around; font-size: 14px;">
+                  ${files.map(f => `<div style="width: calc(100% / 8); text-align: center;">${f}</div>`).join('')}
+                </div>
+              </div>
+            </div>
+            <div class="game-count" id="gameCount">Database: ${this.gameCount.toLocaleString()} games</div>
+            <div id="theoryMessage" class="theory-message" style="display: none;"></div>
+            <div id="endSummary" class="end-summary" style="display: none;"></div>
+            <div class="controls">
+              <button class="btn" onclick="location.reload()">New Match</button>
+            </div>
+          </div>
+        `;
+
+        const boardEl = document.getElementById('board');
+        const isPlayerTurn = this.game.turn() === this.playerColor;
+
+        renderedBoard.forEach((row, r) => {
+          row.forEach((square, c) => {
+            const actualRow = isFlipped ? 7 - r : r;
+            const actualCol = isFlipped ? 7 - c : c;
+            const sqName = 'abcdefgh'[actualCol] + (8 - actualRow);
+            const isLight = (actualRow + actualCol) % 2 === 0;
+            const isSelected = this.selected === sqName;
+            const isLastMove = this.lastMove.from === sqName || this.lastMove.to === sqName;
+
+            const div = document.createElement('div');
+            div.className = `square ${isLight ? 'light' : 'dark'} ${isSelected ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${!isPlayerTurn ? 'disabled' : ''}`;
+            div.onclick = () => this.handleClick(actualRow, actualCol);
+
+            if (square) {
+              const img = document.createElement('img');
+              img.src = pieceImages[square.color + square.type];
+              img.className = 'piece';
+              div.appendChild(img);
+            }
+            boardEl.appendChild(div);
+          });
+        });
+
+        const currentFEN = this.game.fen();
+        if (this.playerColor && this.game.turn() !== this.playerColor && !this.game.game_over() && this.lastAIMoveFEN !== currentFEN) {
+          this.lastAIMoveFEN = currentFEN;
+          setTimeout(() => this.aiMove(), 600);
+        }
+      }
+
+      selectSource(source) {
+        this.aiSource = source;
+        this.render();
+      }
+
+      selectColor(color) {
+        this.playerColor = color;
+        this.render();
+      }
+
+      handleClick(row, col) {
+        if (this.game.turn() !== this.playerColor || this.game.game_over()) return;
+        const square = 'abcdefgh'[col] + (8 - row);
+        if (this.selected) {
+          const moveOptions = { from: this.selected, to: square, promotion: 'q' };
+          try {
+            const move = this.game.move(moveOptions);
+            if (move) {
+              this.lastMove = { from: move.from, to: move.to };
+              this.selected = null;
+              this.playerMoves++;
+              this.updateStatus('AI thinking...');
+              this.render();
+              this.queryExplorer();
+              return;
+            }
+          } catch (e) {}
+          this.selected = null;
+        }
+        const piece = this.game.get(square);
+        if (piece && piece.color === this.playerColor) {
+          this.selected = square;
+        }
+        this.render();
+      }
+
+      async aiMove() {
+        this.updateStatus('AI Thinking...');
+        const fen = this.game.fen();
+        if (this.lastAIMoveFEN !== fen) return;
+
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=12';
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('API Error');
+          const data = await response.json();
+
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+          const countEl = document.getElementById('gameCount');
+          if (countEl) countEl.textContent = `Database: ${totalGames.toLocaleString()} games`;
+
+          const minGames = this.aiSource === 'master' ? 5 : 100;
+
+          if (totalGames < minGames || !data.moves || data.moves.length === 0) {
+            // Fetch games for display
+            try {
+              const base = this.aiSource === 'master' ? 'masters' : 'lichess';
+              let gamesUrl = `https://explorer.lichess.ovh/${base}?variant=standard&fen=${encodeURIComponent(fen)}`;
+              if (this.aiSource === 'master') {
+                gamesUrl += '&topGames=5';
+              } else {
+                gamesUrl += '&recentGames=4&ratings=1600,1800,2000,2200,2500';
+              }
+              const gamesResp = await fetch(gamesUrl);
+              if (gamesResp.ok) {
+                const gData = await gamesResp.json();
+                if (this.aiSource === 'master') {
+                  this.topGames = gData.topGames || [];
+                  this.recentGames = [];
+                } else {
+                  this.recentGames = gData.recentGames || [];
+                  this.topGames = [];
+                }
+              }
+            } catch (e) {
+              this.topGames = [];
+              this.recentGames = [];
+            }
+
+            this.stopGameDueToThinTheory();
+            return;
+          }
+
+          const topMoves = data.moves;
+          let rand = Math.random() * totalGames;
+          let cumulative = 0;
+          let selectedMove = topMoves[0];
+          for (const move of topMoves) {
+            cumulative += move.white + move.draws + move.black;
+            if (rand <= cumulative) {
+              selectedMove = move;
+              break;
+            }
+          }
+          let move;
+          if (selectedMove.san === 'O-O' || selectedMove.san === 'O-O-O') {
+            move = this.game.move(selectedMove.san);
+          } else {
+            const uci = selectedMove.uci;
+            const from = uci.slice(0, 2);
+            const to = uci.slice(2, 4);
+            const promotion = uci.length === 5 ? uci[4] : null;
+            const moveOptions = { from, to };
+            if (promotion) moveOptions.promotion = promotion;
+            move = this.game.move(moveOptions);
+          }
+          if (move) {
+            this.lastMove = { from: move.from, to: move.to };
+            this.updateStatus(`AI: ${move.san}`);
+            this.render();
+            this.queryExplorer();
+          }
+        } catch (error) {
+          console.error('AI move error:', error);
+          this.updateStatus('Connection issue – try refreshing');
+        }
+      }
+
+      stopGameDueToThinTheory() {
+        const title = this.aiSource === 'master' ? 'Master theory ends here' : 'Theory too thin';
+        this.updateStatus(title);
+
+        const msgEl = document.getElementById('theoryMessage');
+        let html = `<strong>${title}</strong> (only ${this.gameCount.toLocaleString()} games in database) – novelty reached.<br><br>`;
+
+        const gamesToShow = this.aiSource === 'master' ? this.topGames : this.recentGames;
+
+        if (gamesToShow && gamesToShow.length > 0) {
+          html += '<strong>Games in this position:</strong><br>';
+          gamesToShow.forEach((game, idx) => {
+            const whitePlayer = game.white?.name || 'Unknown';
+            const blackPlayer = game.black?.name || 'Unknown';
+            const whiteRating = game.white?.rating || '?';
+            const blackRating = game.black?.rating || '?';
+            const year = game.year || '';
+            const gameId = game.id || '';
+            const gameUrl = gameId ? `https://lichess.org/${gameId}` : '#';
+
+            let resultText = '';
+            if (game.winner === 'white') {
+              resultText = '1-0 White wins';
+            } else if (game.winner === 'black') {
+              resultText = '0-1 Black wins';
+            } else {
+              resultText = '½-½ Draw';
+            }
+
+            html += `<div class="game-list-item">
+              <strong>${idx + 1}.</strong> ${whitePlayer} (${whiteRating}) – ${blackPlayer} (${blackRating})${year ? `, ${year}` : ''}<br>
+              <span class="game-result">${resultText}</span><br>
+              <a href="${gameUrl}" target="_blank">View on Lichess</a>
+            </div>`;
+          });
+        } else {
+          html += '<em>No games found in this position.</em>';
+        }
+
+        msgEl.innerHTML = html;
+        msgEl.style.display = 'block';
+
+        const summaryEl = document.getElementById('endSummary');
+        const movesPlayed = this.playerMoves;
+        summaryEl.innerHTML = `
+          <strong>Theory ended after ${movesPlayed} moves</strong><br><br>
+          Your opening practice complete.
+        `;
+        summaryEl.style.display = 'block';
+      }
+
+      updateStatus(text) {
+        const status = document.getElementById('status');
+        if (status) status.textContent = text;
+      }
+    }
+
+    const app = new ChessTheoryApp();
+  </script>
+</body>
+</html>
