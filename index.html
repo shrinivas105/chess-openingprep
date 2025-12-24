@@ -69,7 +69,7 @@
       width: 95%;
       height: 95%;
     }
-    .controls { margin-top: 12px; }
+    .controls { margin-top: 12px; display: flex; gap: 10px; }
     .btn {
       padding: 10px 24px;
       background: #ccc;
@@ -146,19 +146,19 @@
         this.playerMoves = 0;
         this.topGames = [];
         this.recentGames = [];
-        // All methods defined below
-        this.render(); // Called at end
+        this.hints = [];
+        this.render();
       }
 
       renderMenu() {
         const app = document.getElementById('app');
         app.innerHTML = `
           <div class="menu">
+            <div class="author-credit">Author: Srinivas Kulkarni</div>
             <h2>Chess Theory Trainer</h2>
             <p>Practice openings with real human play from game databases.<br>Choose your opponent level:</p>
             <button id="masterBtn" class="menu-btn">Master Level</button>
             <button id="lichessBtn" class="menu-btn">Club Player</button>
-            <div class="author-credit">Author: Srinivas Kulkarni</div>
           </div>
         `;
         document.getElementById('masterBtn').addEventListener('click', () => this.selectSource('master'));
@@ -239,6 +239,7 @@
             <div id="endSummary" class="end-summary" style="display: none;"></div>
             <div class="controls">
               <button class="btn" onclick="location.reload()">New Match</button>
+              ${this.game.turn() === this.playerColor && !this.game.game_over() ? '<button class="btn" id="hintBtn">Hint</button>' : ''}
             </div>
           </div>
         `;
@@ -269,10 +270,48 @@
           });
         });
 
+        if (isPlayerTurn && document.getElementById('hintBtn')) {
+          document.getElementById('hintBtn').addEventListener('click', () => this.getHints());
+        }
+
         const currentFEN = this.game.fen();
         if (this.playerColor && this.game.turn() !== this.playerColor && !this.game.game_over() && this.lastAIMoveFEN !== currentFEN) {
           this.lastAIMoveFEN = currentFEN;
           setTimeout(() => this.aiMove(), 600);
+        }
+      }
+
+      async getHints() {
+        const fen = this.game.fen();
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=12';
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('API Error');
+          const data = await response.json();
+
+          this.hints = data.moves.slice(0, 3).map(move => ({
+            san: move.san,
+            games: (move.white + move.draws + move.black).toLocaleString()
+          }));
+
+          const msgEl = document.getElementById('theoryMessage');
+          if (this.hints.length > 0) {
+            msgEl.innerHTML = `<strong>Top 3 Moves:</strong><br>${this.hints.map(h => `${h.san} (${h.games} games)`).join('<br>')}`;
+          } else {
+            msgEl.innerHTML = '<em>No moves available in database.</em>';
+          }
+          msgEl.style.display = 'block';
+        } catch (error) {
+          console.error('Hint fetch error:', error);
+          const msgEl = document.getElementById('theoryMessage');
+          msgEl.innerHTML = '<em>Unable to fetch hints – try again.</em>';
+          msgEl.style.display = 'block';
         }
       }
 
@@ -297,6 +336,9 @@
               this.lastMove = { from: move.from, to: move.to };
               this.selected = null;
               this.playerMoves++;
+              this.hints = []; // Clear hints after move
+              const msgEl = document.getElementById('theoryMessage');
+              msgEl.style.display = 'none'; // Hide hints
               this.updateStatus('AI thinking...');
               this.render();
               this.queryExplorer();
@@ -337,7 +379,6 @@
           const minGames = this.aiSource === 'master' ? 5 : 100;
 
           if (totalGames < minGames || !data.moves || data.moves.length === 0) {
-            // Fetch games for display
             try {
               const base = this.aiSource === 'master' ? 'masters' : 'lichess';
               let gamesUrl = `https://explorer.lichess.ovh/${base}?variant=standard&fen=${encodeURIComponent(fen)}`;
