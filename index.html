@@ -69,13 +69,19 @@
       width: 95%;
       height: 95%;
     }
-    .controls { margin-top: 12px; display: flex; gap: 10px; }
+    .controls { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .btn {
       padding: 10px 24px;
       background: #ccc;
       border: 1px solid #000;
       font-size: 1rem;
       cursor: pointer;
+    }
+    .btn:disabled {
+      background: #eee;
+      color: #666;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
     .theory-message {
       padding: 12px;
@@ -147,18 +153,18 @@
         this.topGames = [];
         this.recentGames = [];
         this.hints = [];
-        this.render();
+        this.renderMenu(); // Start with menu
       }
 
       renderMenu() {
         const app = document.getElementById('app');
         app.innerHTML = `
           <div class="menu">
-            <div class="author-credit">Author: Srinivas Kulkarni</div>
             <h2>Chess Theory Trainer</h2>
             <p>Practice openings with real human play from game databases.<br>Choose your opponent level:</p>
             <button id="masterBtn" class="menu-btn">Master Level</button>
             <button id="lichessBtn" class="menu-btn">Club Player</button>
+            <div class="author-credit">Author: Srinivas Kulkarni</div>
           </div>
         `;
         document.getElementById('masterBtn').addEventListener('click', () => this.selectSource('master'));
@@ -220,6 +226,8 @@
         const ranks = isFlipped ? ['1','2','3','4','5','6','7','8'] : ['8','7','6','5','4','3','2','1'];
         const files = isFlipped ? ['h','g','f','e','d','c','b','a'] : ['a','b','c','d','e','f','g','h'];
 
+        const isPlayerTurn = this.game.turn() === this.playerColor;
+
         document.getElementById('app').innerHTML = `
           <div class="game-container">
             <div class="info-bar" id="status">${this.aiStatus || 'Your move'}</div>
@@ -239,13 +247,12 @@
             <div id="endSummary" class="end-summary" style="display: none;"></div>
             <div class="controls">
               <button class="btn" onclick="location.reload()">New Match</button>
-              ${this.game.turn() === this.playerColor && !this.game.game_over() ? '<button class="btn" id="hintBtn">Hint</button>' : ''}
+              <button class="btn" id="hintBtn" ${!isPlayerTurn ? 'disabled' : ''}>Hint</button>
             </div>
           </div>
         `;
 
         const boardEl = document.getElementById('board');
-        const isPlayerTurn = this.game.turn() === this.playerColor;
 
         renderedBoard.forEach((row, r) => {
           row.forEach((square, c) => {
@@ -270,8 +277,10 @@
           });
         });
 
-        if (isPlayerTurn && document.getElementById('hintBtn')) {
-          document.getElementById('hintBtn').addEventListener('click', () => this.getHints());
+        // Attach hint listener only if button is enabled
+        const hintBtn = document.getElementById('hintBtn');
+        if (hintBtn && isPlayerTurn) {
+          hintBtn.onclick = () => this.getHints();
         }
 
         const currentFEN = this.game.fen();
@@ -336,9 +345,9 @@
               this.lastMove = { from: move.from, to: move.to };
               this.selected = null;
               this.playerMoves++;
-              this.hints = []; // Clear hints after move
+              this.hints = [];
               const msgEl = document.getElementById('theoryMessage');
-              msgEl.style.display = 'none'; // Hide hints
+              msgEl.style.display = 'none';
               this.updateStatus('AI thinking...');
               this.render();
               this.queryExplorer();
