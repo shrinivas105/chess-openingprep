@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chess Theory Trainer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      touch-action: manipulation;
+    }
+    .menu {
+      text-align: center;
+      padding: 40px 20px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 20px;
+      max-width: 500px;
+      margin: 20px auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(129, 182, 76, 0.2);
+    }
+    .menu h2 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #81b64c, #5d8a33);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 20px rgba(129, 182, 76, 0.3);
+    }
+    .menu p {
+      font-size: 1.1rem;
+      color: #eee;
+      margin-bottom: 40px;
+      line-height: 1.8;
+    }
+    .menu-btn {
+      width: 100%;
+      max-width: 280px;
+      padding: 18px;
+      margin: 10px;
+      background: linear-gradient(135deg, #81b64c, #6ea03d);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      box-shadow: 0 6px 0 #4a7028, 0 8px 20px rgba(129, 182, 76, 0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    .menu-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #4a7028, 0 12px 24px rgba(129, 182, 76, 0.4);
+    }
+    .menu-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #4a7028, 0 4px 12px rgba(129, 182, 76, 0.3);
+    }
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+      background: rgba(20, 20, 20, 0.6);
+      border-radius: 16px;
+      padding: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .board-wrapper {
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 4px solid #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(129, 182, 76, 0.2);
+    }
+    .square {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.15s ease;
+    }
+    .square.light { background: #f0d9b5; }
+    .square.dark { background: #b58863; }
+    .square.selected {
+      background: #f6e58d !important;
+      box-shadow: inset 0 0 0 3px #f39c12;
+    }
+    .square.last-move {
+      background: rgba(255, 215, 0, 0.4) !important;
+    }
+    .square.disabled { pointer-events: none; }
+    .square:not(.disabled):hover {
+      filter: brightness(1.1);
+    }
+    .piece {
+      width: 85%;
+      height: 85%;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+      pointer-events: none;
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      padding: 12px 25px;
+      background: linear-gradient(135deg, #81b64c, #6ea03d);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(129, 182, 76, 0.3);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(129, 182, 76, 0.4);
+    }
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(129, 182, 76, 0.3);
+    }
+    .btn:disabled {
+      background: linear-gradient(135deg, #555, #444);
+      color: #999;
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+      box-shadow: none;
+    }
+    .theory-message {
+      background: rgba(40, 40, 40, 0.95);
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin: 15px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      border: 1px solid rgba(129, 182, 76, 0.3);
+      line-height: 1.6;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .commander-text {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+    .game-count {
+      font-size: 0.95rem;
+      color: #ddd;
+      margin: 10px 0;
+      text-align: center;
+      font-weight: 500;
+    }
+    .unknown-territory-warning {
+      background: rgba(200, 30, 30, 0.9);
+      color: #fff;
+      font-weight: bold;
+      padding: 8px 15px;
+      border-radius: 8px;
+      margin: 8px 0;
+      text-align: center;
+      border: 1px solid #ff4444;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+    }
+    .end-summary {
+      background: rgba(40, 40, 40, 0.95);
+      padding: 18px 20px;
+      border-radius: 12px;
+      margin: 15px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      border: 1px solid rgba(129, 182, 76, 0.3);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      line-height: 1.6;
+    }
+    .end-summary .rank-icon {
+      font-size: 3rem;
+      margin: 12px 0;
+    }
+    .end-summary .rank-label {
+      font-size: 1.2rem;
+      color: #81b64c;
+      margin: 8px 0;
+    }
+    .end-summary .rank-title {
+      font-size: 2rem;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    .end-summary .rank-msg {
+      font-size: 1.05rem;
+      font-style: italic;
+      margin: 15px 0;
+      line-height: 1.5;
+    }
+    .end-summary .rank-sub {
+      font-size: 0.95rem;
+      color: #ccc;
+      line-height: 1.5;
+    }
+    .rank-progress {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 15px 0;
+      font-size: 1rem;
+      color: #aaa;
+      gap: 8px;
+    }
+    .rank-step {
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(50, 50, 50, 0.6);
+      font-weight: normal;
+    }
+    .rank-step.active {
+      background: linear-gradient(135deg, #81b64c, #5d8a33);
+      color: #111;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(129, 182, 76, 0.6);
+    }
+    .game-list-item {
+      margin: 12px 0;
+      padding: 14px;
+      background: rgba(50, 50, 50, 0.8);
+      border-radius: 10px;
+      text-align: left;
+      font-size: 0.9rem;
+      border: 1px solid rgba(129, 182, 76, 0.2);
+      transition: all 0.2s ease;
+    }
+    .game-list-item:hover {
+      background: rgba(60, 60, 60, 0.9);
+      border-color: rgba(129, 182, 76, 0.4);
+      transform: translateX(4px);
+    }
+    .author-credit {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      color: #ccc;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+    const pieceImages = {
+      wp: "https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg",
+      wr: "https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg",
+      wn: "https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg",
+      wb: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg",
+      wq: "https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg",
+      wk: "https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg",
+      bp: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg",
+      br: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg",
+      bn: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg",
+      bb: "https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg",
+      bq: "https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
+      bk: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg",
+    };
+
+    class ChessTheoryApp {
+      constructor() {
+        this.game = new Chess();
+        this.playerColor = null;
+        this.aiSource = null;
+        this.selected = null;
+        this.lastMove = { from: null, to: null };
+        this.rawEval = 0;
+        this.playerEval = 0;
+        this.finalPlayerEval = 0;
+        this.gameCount = 0;
+        this.evalCache = {};
+        this.lastAIMoveFEN = null;
+        this.playerMoves = 0;
+        this.topGames = [];
+        this.recentGames = [];
+        this.hintUsed = false;
+        this.previousFEN = null;
+        this.lastPlayerUCI = null;
+        this.renderMenu();
+      }
+
+      getPlayerEval(raw) {
+        return this.playerColor === 'b' ? -raw : raw;
+      }
+
+      getRank() {
+        const isMaster = this.aiSource === 'master';
+        const moves = this.playerMoves;
+        const badEval = this.finalPlayerEval <= -2.0;
+        let baseRank = 'Levy';
+        if (isMaster) {
+          if (moves >= 18) baseRank = 'Grand Strategos';
+          else if (moves >= 13) baseRank = 'Triarius';
+          else if (moves >= 9) baseRank = 'Centurion';
+          else if (moves >= 5) baseRank = 'Hastatus';
+        } else {
+          if (moves >= 21) baseRank = 'Grand Strategos';
+          else if (moves >= 16) baseRank = 'Triarius';
+          else if (moves >= 10) baseRank = 'Centurion';
+          else if (moves >= 6) baseRank = 'Hastatus';
+        }
+        let finalRank = baseRank;
+        if (badEval && baseRank !== 'Levy') {
+          const order = ['Levy', 'Hastatus', 'Centurion', 'Triarius', 'Grand Strategos'];
+          const idx = order.indexOf(baseRank);
+          finalRank = order[idx - 1];
+        }
+        const ranks = {
+          Levy: { icon: "🪶", title: "Levy", msg: isMaster ? "You barely stepped onto the battlefield." : "You entered the fight unprepared.", sub: isMaster ? "Raw instinct without formation or preparation." : "Instinct alone carried you this far." },
+          Hastatus: { icon: "🛡️", title: "Hastatus", msg: isMaster ? "A frontline soldier holding basic formation." : "A trained soldier holding the line.", sub: isMaster ? "You know the drills, but depth is yet to come." : "Basic theory kept you alive." },
+          Centurion: { icon: "⚔️", title: "Centurion", msg: isMaster ? "You commanded the fight with structure and intent." : "You fought with structure and authority.", sub: isMaster ? "Order prevailed amid early chaos." : "Planning replaced panic." },
+          Triarius: { icon: "🦅", title: "Triarius", msg: isMaster ? "A veteran called when the battle turns dire." : "A veteran presence on the battlefield.", sub: isMaster ? "Experience and calm judgment defined you." : "Experience spoke louder than force." },
+          'Grand Strategos': { icon: "🏆", title: "Grand Strategos", msg: isMaster ? "Master of war and architect of victory." : "You commanded the war itself.", sub: isMaster ? "You shaped the battlefield itself." : "Not just survival — domination." }
+        };
+        return ranks[finalRank];
+      }
+
+      renderMenu() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="menu">
+            <h2>Survive Till Novelty</h2>
+            <p style="max-width: 500px; margin: 0 auto 20px; line-height: 1.8; font-size: 1.1rem; color: #eee;">
+              Step into the opening battleground. Face a human-like opponent drawn from real games. Hold your ground, move by move, as theory runs deeper — until the book ends and novelty begins.
+            </p>
+            <p style="max-width: 500px; margin: 0 auto 40px; line-height: 1.8; font-size: 1.1rem; color: #eee; font-weight: 600;">
+              I want to fight a,
+            </p>
+            <button id="masterBtn" class="menu-btn">🏆 Master</button>
+            <button id="lichessBtn" class="menu-btn">♟️ Club Rookie</button>
+            <div class="author-credit">
+              Author: Srinivas Kulkarni
+            </div>
+          </div>
+        `;
+        document.getElementById('masterBtn').addEventListener('click', () => this.selectSource('master'));
+        document.getElementById('lichessBtn').addEventListener('click', () => this.selectSource('lichess'));
+      }
+
+      renderColorChoice() {
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <div class="menu">
+            <h2>Play As</h2>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              <button id="whiteBtn" class="menu-btn" style="max-width: 140px; background: #eee; color: #222;">White</button>
+              <button id="blackBtn" class="menu-btn" style="max-width: 140px; background: #444;">Black</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('whiteBtn').addEventListener('click', () => this.selectColor('w'));
+        document.getElementById('blackBtn').addEventListener('click', () => this.selectColor('b'));
+      }
+
+      render() {
+        if (!this.aiSource) {
+          this.renderMenu();
+        } else if (!this.playerColor) {
+          this.renderColorChoice();
+        } else {
+          this.renderBoard();
+          this.queryExplorer();
+        }
+      }
+
+      async queryExplorer() {
+        const fen = this.game.fen();
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=5'; // Changed to 5
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) return;
+          const data = await response.json();
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+          const countEl = document.getElementById('gameCount');
+          if (countEl) {
+            countEl.textContent = `This battle position was reached ${totalGames.toLocaleString()} times in history.`;
+          }
+
+          // Check low-percentage player move in Club mode
+          if (this.aiSource === 'lichess' && this.previousFEN && this.lastPlayerUCI) {
+            const prevUrl = 'https://explorer.lichess.ovh/lichess?variant=standard&fen=' + encodeURIComponent(this.previousFEN) + '&topGames=0&moves=5&ratings=1600,1800,2000,2200,2500'; // Changed to 5
+            const prevResp = await fetch(prevUrl);
+            if (prevResp.ok) {
+              const prevData = await prevResp.json();
+              const prevTotal = (prevData.white || 0) + (prevData.draws || 0) + (prevData.black || 0);
+              if (prevTotal > 0 && prevData.moves) {
+                const moveEntry = prevData.moves.find(m => m.uci === this.lastPlayerUCI);
+                if (moveEntry) {
+                  const moveGames = moveEntry.white + moveEntry.draws + moveEntry.black;
+                  const percentage = (moveGames / prevTotal) * 100;
+                  const warningEl = document.getElementById('unknownWarning');
+                  if (percentage < 10) {
+                    if (!warningEl) {
+                      const warning = document.createElement('div');
+                      warning.id = 'unknownWarning';
+                      warning.className = 'unknown-territory-warning';
+                      warning.textContent = 'You reached unknown territory, be careful';
+                      countEl.parentNode.insertBefore(warning, countEl.nextSibling);
+                    }
+                  } else {
+                    if (warningEl) warningEl.remove();
+                  }
+                } else {
+                  // Move not in top 5 → definitely <10%
+                  if (!document.getElementById('unknownWarning')) {
+                    const warning = document.createElement('div');
+                    warning.id = 'unknownWarning';
+                    warning.className = 'unknown-territory-warning';
+                    warning.textContent = 'You reached unknown territory, be careful';
+                    countEl.parentNode.insertBefore(warning, countEl.nextSibling);
+                  }
+                }
+              }
+            }
+          } else {
+            const warningEl = document.getElementById('unknownWarning');
+            if (warningEl) warningEl.remove();
+          }
+
+          this.previousFEN = null;
+          this.lastPlayerUCI = null;
+        } catch (e) {
+          console.error('Explorer query failed:', e);
+        }
+      }
+
+      renderBoard() {
+        const board = this.game.board();
+        const isFlipped = this.playerColor === 'b';
+        const renderedBoard = isFlipped ? board.slice().reverse().map(r => r.slice().reverse()) : board;
+        const isPlayerTurn = this.game.turn() === this.playerColor;
+        document.getElementById('app').innerHTML = `
+          <div class="game-container">
+            <div class="board-wrapper" id="board"></div>
+            <div class="game-count" id="gameCount">This battle position was reached ${this.gameCount.toLocaleString()} times in history.</div>
+            <div id="endSummary" class="end-summary" style="display: none;"></div>
+            <div id="theoryMessage" class="theory-message" style="display: none;"></div>
+            <div class="controls">
+              <button class="btn" onclick="location.reload()">🔄 New Battle</button>
+              <button class="btn" id="hintBtn" ${!isPlayerTurn || this.hintUsed ? 'disabled' : ''}>${this.hintUsed ? '✓ Commander Consulted' : '🎖️ Consult the Commander'}</button>
+            </div>
+          </div>
+        `;
+        const boardEl = document.getElementById('board');
+        renderedBoard.forEach((row, r) => {
+          row.forEach((square, c) => {
+            const actualRow = isFlipped ? 7 - r : r;
+            const actualCol = isFlipped ? 7 - c : c;
+            const sqName = 'abcdefgh'[actualCol] + (8 - actualRow);
+            const isLight = (actualRow + actualCol) % 2 === 0;
+            const isSelected = this.selected === sqName;
+            const isLastMove = this.lastMove.from === sqName || this.lastMove.to === sqName;
+            const div = document.createElement('div');
+            div.className = `square ${isLight ? 'light' : 'dark'} ${isSelected ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${!isPlayerTurn ? 'disabled' : ''}`;
+            div.onclick = () => this.handleClick(actualRow, actualCol);
+            if (square) {
+              const img = document.createElement('img');
+              img.src = pieceImages[square.color + square.type];
+              img.className = 'piece';
+              div.appendChild(img);
+            }
+            boardEl.appendChild(div);
+          });
+        });
+        const hintBtn = document.getElementById('hintBtn');
+        if (hintBtn && isPlayerTurn) {
+          hintBtn.onclick = () => this.getHints();
+        }
+        const currentFEN = this.game.fen();
+        if (this.playerColor && this.game.turn() !== this.playerColor && !this.game.game_over() && this.lastAIMoveFEN !== currentFEN) {
+          this.lastAIMoveFEN = currentFEN;
+          setTimeout(() => this.aiMove(), 600);
+        }
+      }
+
+      async getHints() {
+        if (this.hintUsed) return;
+        const fen = this.game.fen();
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=5'; // Changed to 5
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('API Error');
+          const data = await response.json();
+          const topMoves = data.moves.slice(0, 5);
+          let commanderText = '';
+
+          if (topMoves.length === 0) {
+            commanderText = '<em>No moves available in database.</em>';
+          } else {
+            const moveNames = topMoves.map(m => m.san);
+            const first = moveNames[0];
+            const second = moveNames[1];
+            const others = moveNames.slice(2);
+
+            commanderText = `🎖️ <strong>Commander speaks:</strong><br><br>
+            “Soldier, I have walked this battlefield before. I have seen this position play out many times.`;
+
+            commanderText += ` If you wish to strike directly, march with <strong>${first}</strong> — the most proven assault.`;
+
+            if (second) {
+              commanderText += ` Or choose <strong>${second}</strong>, a solid formation trusted by many commanders.`;
+            }
+
+            if (others.length > 0) {
+              const othersList = others.join(', ');
+              const pathWord = others.length === 1 ? 'path exist' : 'paths exist';
+              commanderText += ` From the war journals, other ${pathWord}: <strong>${othersList}</strong> — each leads to a different kind of struggle.`;
+            }
+
+            commanderText += ` I cannot fight for you. The next move is yours. Good luck.”`;
+          }
+
+          const msgEl = document.getElementById('theoryMessage');
+          msgEl.innerHTML = `<div class="commander-text">${commanderText}</div>`;
+          msgEl.style.display = 'block';
+          this.hintUsed = true;
+          const hintBtn = document.getElementById('hintBtn');
+          if (hintBtn) {
+            hintBtn.disabled = true;
+            hintBtn.textContent = '✓ Commander Consulted';
+          }
+        } catch (error) {
+          console.error('Hint fetch error:', error);
+          const msgEl = document.getElementById('theoryMessage');
+          msgEl.innerHTML = '<em>Unable to fetch hints – try again.</em>';
+          msgEl.style.display = 'block';
+        }
+      }
+
+      selectSource(source) {
+        this.aiSource = source;
+        this.render();
+      }
+
+      selectColor(color) {
+        this.playerColor = color;
+        this.hintUsed = false;
+        this.render();
+      }
+
+      handleClick(row, col) {
+        if (this.game.turn() !== this.playerColor || this.game.game_over()) return;
+        const square = 'abcdefgh'[col] + (8 - row);
+        if (this.selected) {
+          const moveOptions = { from: this.selected, to: square, promotion: 'q' };
+          try {
+            const preMoveFEN = this.game.fen();
+            const move = this.game.move(moveOptions);
+            if (move) {
+              this.lastMove = { from: move.from, to: move.to };
+              this.lastPlayerUCI = move.uci;
+              this.previousFEN = preMoveFEN;
+              this.selected = null;
+              this.playerMoves++;
+              const msgEl = document.getElementById('theoryMessage');
+              msgEl.style.display = 'none';
+              this.render();
+              this.queryExplorer();
+              return;
+            }
+          } catch (e) {}
+          this.selected = null;
+        }
+        const piece = this.game.get(square);
+        if (piece && piece.color === this.playerColor) {
+          this.selected = square;
+        }
+        this.render();
+      }
+
+      async aiMove() {
+        const fen = this.game.fen();
+        if (this.lastAIMoveFEN !== fen) return;
+        try {
+          let url = this.aiSource === 'master'
+            ? 'https://explorer.lichess.ovh/masters'
+            : 'https://explorer.lichess.ovh/lichess';
+          url += '?variant=standard&fen=' + encodeURIComponent(fen) + '&topGames=0&moves=5'; // Changed to 5
+          if (this.aiSource === 'lichess') {
+            url += '&ratings=1600,1800,2000,2200,2500';
+          }
+          const response = await fetch(url);
+          if (!response.ok) throw new Error('API Error');
+          const data = await response.json();
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+          const countEl = document.getElementById('gameCount');
+          if (countEl) countEl.textContent = `This battle position was reached ${totalGames.toLocaleString()} times in history.`;
+          const minGames = this.aiSource === 'master' ? 5 : 20;
+          if (totalGames < minGames || !data.moves || data.moves.length === 0) {
+            await this.fetchEval();
+            this.finalPlayerEval = this.playerEval;
+            try {
+              const base = this.aiSource === 'master' ? 'masters' : 'lichess';
+              let gamesUrl = `https://explorer.lichess.ovh/${base}?variant=standard&fen=${encodeURIComponent(fen)}`;
+              if (this.aiSource === 'master') {
+                gamesUrl += '&topGames=5';
+              } else {
+                gamesUrl += '&recentGames=4&ratings=1600,1800,2000,2200,2500';
+              }
+              const gamesResp = await fetch(gamesUrl);
+              if (gamesResp.ok) {
+                const gData = await gamesResp.json();
+                if (this.aiSource === 'master') {
+                  this.topGames = gData.topGames || [];
+                  this.recentGames = [];
+                } else {
+                  this.recentGames = gData.recentGames || [];
+                  this.topGames = [];
+                }
+              }
+            } catch (e) {
+              this.topGames = [];
+              this.recentGames = [];
+            }
+            this.stopGameDueToThinTheory();
+            return;
+          }
+          const topMoves = data.moves;
+          let rand = Math.random() * totalGames;
+          let cumulative = 0;
+          let selectedMove = topMoves[0];
+          for (const move of topMoves) {
+            cumulative += move.white + move.draws + move.black;
+            if (rand <= cumulative) {
+              selectedMove = move;
+              break;
+            }
+          }
+          let move;
+          if (selectedMove.san === 'O-O' || selectedMove.san === 'O-O-O') {
+            move = this.game.move(selectedMove.san);
+          } else {
+            const uci = selectedMove.uci;
+            const from = uci.slice(0, 2);
+            const to = uci.slice(2, 4);
+            const promotion = uci.length === 5 ? uci[4] : null;
+            const moveOptions = { from, to };
+            if (promotion) moveOptions.promotion = promotion;
+            move = this.game.move(moveOptions);
+          }
+          if (move) {
+            this.lastMove = { from: move.from, to: move.to };
+            this.fetchEval();
+            this.render();
+            this.queryExplorer();
+          }
+        } catch (error) {
+          console.error('AI move error:', error);
+        }
+      }
+
+      async fetchEval() {
+        const fen = this.game.fen();
+        if (this.evalCache[fen] !== undefined) {
+          this.rawEval = this.evalCache[fen];
+          this.playerEval = this.getPlayerEval(this.rawEval);
+          return;
+        }
+        try {
+          const response = await fetch('https://chess-api.com/v1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (typeof data.eval === 'number') {
+              this.rawEval = data.eval;
+              this.evalCache[fen] = this.rawEval;
+              this.playerEval = this.getPlayerEval(this.rawEval);
+            }
+          }
+        } catch (e) {
+          console.log('Eval unavailable');
+        }
+      }
+
+      stopGameDueToThinTheory() {
+        const summaryEl = document.getElementById('endSummary');
+        const rank = this.getRank();
+        const displayEval = this.finalPlayerEval > 0 ? '+' + this.finalPlayerEval.toFixed(1) : this.finalPlayerEval.toFixed(1);
+        const rankOrder = ['Levy', 'Hastatus', 'Centurion', 'Triarius', 'Grand Strategos'];
+        summaryEl.innerHTML = `
+          <strong>Moves survived:</strong> ${this.playerMoves} &nbsp; | &nbsp;
+          <strong>Eval:</strong> ${displayEval}
+          <div class="rank-icon">${rank.icon}</div>
+          <div class="rank-progress">
+            ${rankOrder.map(r =>
+              `<div class="rank-step ${r === rank.title ? 'active' : ''}">${r}</div>`
+            ).join('')}
+          </div>
+          <div class="rank-label">Your rank in this battle</div>
+          <div class="rank-title">${rank.title}</div>
+          <div class="rank-msg">"${rank.msg}"</div>
+          <div class="rank-sub"><em>${rank.sub}</em></div>
+        `;
+        summaryEl.style.display = 'block';
+        const msgEl = document.getElementById('theoryMessage');
+        let html = `<strong>Games in this position:</strong> ${this.gameCount.toLocaleString()}<br><br>`;
+        const gamesToShow = this.aiSource === 'master' ? this.topGames : this.recentGames;
+        if (gamesToShow && gamesToShow.length > 0) {
+          gamesToShow.forEach((game, idx) => {
+            const whitePlayer = game.white?.name || 'Unknown';
+            const blackPlayer = game.black?.name || 'Unknown';
+            const whiteRating = game.white?.rating || '?';
+            const blackRating = game.black?.rating || '?';
+            const year = game.year || '';
+            const gameId = game.id || '';
+            const gameUrl = gameId ? `https://lichess.org/${gameId}` : '#';
+            let resultText = '';
+            let resultColor = '#aaa';
+            if (game.winner === 'white') {
+              resultText = '1-0 White wins';
+              resultColor = '#fff';
+            } else if (game.winner === 'black') {
+              resultText = '0-1 Black wins';
+              resultColor = '#ccc';
+            } else {
+              resultText = '½-½ Draw';
+              resultColor = '#f1c40f';
+            }
+            html += `<div class="game-list-item">
+              <strong>${idx + 1}.</strong> ${whitePlayer} (${whiteRating}) – ${blackPlayer} (${blackRating})${year ? `, ${year}` : ''}<br>
+              <span class="game-result" style="color: ${resultColor};">${resultText}</span><br>
+              <a href="${gameUrl}" target="_blank" style="color: #81b64c; text-decoration: none;">View on Lichess ↗</a>
+            </div>`;
+          });
+        } else {
+          html += '<em>No games found in this position.</em>';
+        }
+        msgEl.innerHTML = html;
+        msgEl.style.display = 'block';
+      }
+    }
+
+    const app = new ChessTheoryApp();
+  </script>
+</body>
+</html>
