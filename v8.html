@@ -260,12 +260,14 @@
         app.innerHTML = `
           <div class="menu">
             <h2>Survive Till Novelty</h2>
-            <p style="max-width: 500px; margin: 0 auto 40px; line-height: 1.8; font-size: 1.1rem; color: #eee;">
-              Step into the opening battleground. Face a human-like opponent drawn from real games.<br><br>
-              Hold your ground, move by move, as theory runs deeper — until the book ends and novelty begins.
+            <p style="max-width: 500px; margin: 0 auto 20px; line-height: 1.8; font-size: 1.1rem; color: #eee;">
+              Step into the opening battleground. Face a human-like opponent drawn from real games. Hold your ground, move by move, as theory runs deeper — until the book ends and novelty begins.
             </p>
-            <button id="masterBtn" class="menu-btn">🏆 Master Level</button>
-            <button id="lichessBtn" class="menu-btn">♟️ Club Player</button>
+            <p style="max-width: 500px; margin: 0 auto 40px; line-height: 1.8; font-size: 1.1rem; color: #eee; font-weight: 600;">
+              I want to fight a,
+            </p>
+            <button id="masterBtn" class="menu-btn">🏆 Master</button>
+            <button id="lichessBtn" class="menu-btn">♟️ Club Rookie</button>
             <div class="author-credit">
               Author: Srinivas Kulkarni
             </div>
@@ -339,10 +341,6 @@
         document.getElementById('app').innerHTML = `
           <div class="game-container">
             <div class="info-bar" id="status">${this.aiStatus || 'Your move'}</div>
-            <div class="eval-bar">
-              <div class="eval-bar-fill" style="width: ${barPercentage}%"></div>
-              <div class="eval-text">${displayEval}</div>
-            </div>
             <div style="display: flex; align-items: flex-start; gap: 5px;">
               <div style="display: flex; flex-direction: column; justify-content: space-around; height: 400px; max-height: 400px; padding: 0 3px; color: #aaa; font-size: 12px;">
                 ${ranks.map(r => `<div style="height: calc(100% / 8); display: flex; align-items: center; justify-content: center;">${r}</div>`).join('')}
@@ -358,8 +356,8 @@
             <div id="endSummary" class="end-summary" style="display: none;"></div>
             <div id="theoryMessage" class="theory-message" style="display: none;"></div>
             <div class="controls">
-              <button class="btn" onclick="location.reload()">🔄 New Match</button>
-              <button class="btn" id="hintBtn" ${!isPlayerTurn ? 'disabled' : ''}>Hint</button>
+              <button class="btn" onclick="location.reload()">🔄 New Battle</button>
+              <button class="btn" id="hintBtn" ${!isPlayerTurn ? 'disabled' : ''}>Consult the Commander</button>
             </div>
           </div>
         `;
