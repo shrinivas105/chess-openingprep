@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lines of the Legion</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+      touch-action: manipulation;
+    }
+    .menu {
+      text-align: center;
+      padding: 40px 20px;
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 20px;
+      max-width: 500px;
+      margin: 20px auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(129, 182, 76, 0.2);
+    }
+    .menu h2 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #81b64c, #5d8a33);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 20px rgba(129, 182, 76, 0.3);
+    }
+    .menu p {
+      font-size: 1.1rem;
+      color: #eee;
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+    .menu-btn {
+      width: 100%;
+      max-width: 280px;
+      padding: 18px;
+      margin: 8px 10px;
+      background: linear-gradient(135deg, #81b64c, #6ea03d);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      box-shadow: 0 6px 0 #4a7028, 0 8px 20px rgba(129, 182, 76, 0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+    .menu-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #4a7028, 0 12px 24px rgba(129, 182, 76, 0.4);
+    }
+    .menu-btn:active {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 #4a7028, 0 4px 12px rgba(129, 182, 76, 0.3);
+    }
+    #resetBtn:hover {
+      box-shadow: 0 8px 0 #8b2e24, 0 12px 24px rgba(231, 76, 60, 0.4) !important;
+    }
+    #resetBtn:active {
+      box-shadow: 0 2px 0 #8b2e24, 0 4px 12px rgba(231, 76, 60, 0.3) !important;
+    }
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+      background: rgba(20, 20, 20, 0.6);
+      border-radius: 16px;
+      padding: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .board-wrapper {
+      width: 100%;
+      max-width: 400px;
+      aspect-ratio: 1;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 4px solid #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 20px 0;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(129, 182, 76, 0.2);
+    }
+    .square {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.15s ease;
+    }
+    .square.light { background: #f0d9b5; }
+    .square.dark { background: #b58863; }
+    .square.selected {
+      background: #f6e58d !important;
+      box-shadow: inset 0 0 0 3px #f39c12;
+    }
+    .square.last-move {
+      background: rgba(255, 215, 0, 0.4) !important;
+    }
+    .square.disabled { pointer-events: none; }
+    .square:not(.disabled):hover {
+      filter: brightness(1.1);
+    }
+    .piece {
+      width: 85%;
+      height: 85%;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+      pointer-events: none;
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      padding: 12px 25px;
+      background: linear-gradient(135deg, #81b64c, #6ea03d);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(129, 182, 76, 0.3);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(129, 182, 76, 0.4);
+    }
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(129, 182, 76, 0.3);
+    }
+    .btn:disabled {
+      background: linear-gradient(135deg, #555, #444);
+      color: #999;
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+      box-shadow: none;
+    }
+    .theory-message {
+      background: rgba(40, 40, 40, 0.95);
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin: 15px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      border: 1px solid rgba(129, 182, 76, 0.3);
+      line-height: 1.6;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .commander-text {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+    .game-count {
+      font-size: 0.95rem;
+      color: #ddd;
+      margin: 10px 0;
+      text-align: center;
+      font-weight: 500;
+    }
+    .end-summary {
+      background: rgba(40, 40, 40, 0.95);
+      padding: 18px 20px;
+      border-radius: 12px;
+      margin: 15px 0;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      border: 1px solid rgba(129, 182, 76, 0.3);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      line-height: 1.6;
+    }
+    .demotion-message {
+      background: rgba(200, 30, 30, 0.9);
+      color: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      font-weight: bold;
+      border: 1px solid #ff4444;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+    }
+    .score-breakdown {
+      display: flex;
+      justify-content: space-around;
+      margin: 15px 0;
+      font-size: 1rem;
+      color: #81b64c;
+      font-weight: bold;
+    }
+    .score-breakdown div {
+      text-align: center;
+    }
+    .game-list-item {
+      margin: 12px 0;
+      padding: 14px;
+      background: rgba(50, 50, 50, 0.8);
+      border-radius: 10px;
+      text-align: left;
+      font-size: 0.9rem;
+      border: 1px solid rgba(129, 182, 76, 0.2);
+      transition: all 0.2s ease;
+    }
+    .game-list-item:hover {
+      background: rgba(60, 60, 60, 0.9);
+      border-color: rgba(129, 182, 76, 0.4);
+      transform: translateX(4px);
+    }
+    .author-credit {
+      margin-top: 40px;
+      font-size: 0.9rem;
+      color: #ccc;
+      font-style: italic;
+    }
+    .stats-display {
+      background: rgba(50, 50, 50, 0.8);
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin: 10px 0;
+      text-align: center;
+      border: 1px solid rgba(129, 182, 76, 0.3);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .legion-section {
+      margin: 15px 0;
+    }
+    .rank-progress {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 12px 0;
+      flex-wrap: wrap;
+    }
+    .rank-step {
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(50, 50, 50, 0.6);
+      font-size: 0.9rem;
+    }
+    .rank-step.active {
+      background: linear-gradient(135deg, #81b64c, #5d8a33);
+      color: #111;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(129, 182, 76, 0.6);
+    }
+    .end-rank-title {
+      font-size: 1.8rem;
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const pieceImages = {
+      wp: "https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg",
+      wr: "https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg",
+      wn: "https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg",
+      wb: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg",
+      wq: "https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg",
+      wk: "https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg",
+      bp: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg",
+      br: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg",
+      bn: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg",
+      bb: "https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg",
+      bq: "https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
+      bk: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg",
+    };
+
+    class ChessAPI {
+      static async queryExplorer(source, fen) {
+        let url = source === 'master'
+          ? 'https://explorer.lichess.ovh/masters'
+          : 'https://explorer.lichess.ovh/lichess';
+        url += `?variant=standard&fen=${encodeURIComponent(fen)}&topGames=0&moves=5`;
+        if (source === 'lichess') url += '&ratings=1600,1800,2000,2200,2500';
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Explorer API failed');
+        return await response.json();
+      }
+
+      static async queryGames(source, fen) {
+        const base = source === 'master' ? 'masters' : 'lichess';
+        let url = `https://explorer.lichess.ovh/${base}?variant=standard&fen=${encodeURIComponent(fen)}`;
+        if (source === 'master') {
+          url += '&topGames=10';
+        } else {
+          url += '&recentGames=10&ratings=1600,1800,2000,2200,2500';
+        }
+        const response = await fetch(url);
+        if (!response.ok) return { topGames: [], recentGames: [] };
+        const data = await response.json();
+        return {
+          topGames: data.topGames || [],
+          recentGames: data.recentGames || []
+        };
+      }
+
+      static async getEvaluation(fen, cache = {}) {
+        if (cache[fen] !== undefined) return cache[fen];
+        try {
+          const response = await fetch('https://chess-api.com/v1', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (typeof data.eval === 'number') {
+              cache[fen] = data.eval;
+              return data.eval;
+            }
+          }
+        } catch (e) {
+          console.log('Evaluation unavailable');
+        }
+        return 0;
+      }
+    }
+
+    class Scoring {
+      static getPlayerEval(rawEval, playerColor) {
+        return playerColor === 'b' ? -rawEval : rawEval;
+      }
+
+      static getMoveQuality(topMoveChoices, playerMoves) {
+        return playerMoves > 0 ? Math.round((topMoveChoices / playerMoves) * 100) : 0;
+      }
+
+      static getTotalScore(playerMoves, topMoveChoices, finalPlayerEval) {
+        const moveScore = playerMoves * 4 * 0.25;
+        const qualityScore = this.getMoveQuality(topMoveChoices, playerMoves) * 0.40;
+        const evalScore = finalPlayerEval < -3.0 ? 0 : Math.max(0, (finalPlayerEval + 3) * 12 * 0.35);
+
+        let baseScore = moveScore + qualityScore + evalScore;
+        let multiplier = 1.0;
+        let penaltyReason = '';
+
+        if (finalPlayerEval < -3.0) {
+          multiplier = 0.3;
+          penaltyReason = 'Catastrophic blunder! Position collapsed (eval < -3.0).';
+        } else if (finalPlayerEval >= -3.0 && finalPlayerEval < -1.5) {
+          multiplier = 0.8;
+          penaltyReason = 'Significant disadvantage (eval -3.0 to -1.5).';
+        }
+
+        // Removed accuracy penalty message
+
+        const totalScore = baseScore * multiplier;
+        const finalScore = Math.min(Math.round(totalScore), multiplier === 0.3 ? 30 : multiplier === 0.8 ? 60 : 100);
+
+        return { score: finalScore, penaltyReason };
+      }
+
+      static getBattleRank(score, finalPlayerEval, penaltyReason) {
+        const thresholds = [85, 70, 55, 40];
+        let rankName;
+
+        if (finalPlayerEval <= -3.0) {
+          rankName = 'Levy';
+        } else if (finalPlayerEval < -1.5) {
+          rankName = score >= thresholds[3] ? 'Hastatus' : 'Levy';
+        } else {
+          if (score >= thresholds[0]) rankName = 'Imperator';
+          else if (score >= thresholds[1]) rankName = 'Triarius';
+          else if (score >= thresholds[2]) rankName = 'Principes';
+          else if (score >= thresholds[3]) rankName = 'Hastatus';
+          else rankName = 'Levy';
+        }
+
+        const ranks = {
+          Levy: { icon: "🪶", title: "Levy", msg: penaltyReason || "You barely stepped onto the battlefield.", sub: "Blunders reset your rank." },
+          Hastatus: { icon: "🛡️", title: "Hastatus", msg: penaltyReason || "Frontline soldier holding formation.", sub: "Good start — improve execution." },
+          Principes: { icon: "⚔️", title: "Principes", msg: "You commanded with structure and intent.", sub: "Solid theory and tactics." },
+          Triarius: { icon: "🦅", title: "Triarius", msg: "Veteran presence — turning the tide.", sub: "Excellent mastery of opening & position." },
+          Imperator: { icon: "🏆", title: "Imperator", msg: "Master of war — architect of victory.", sub: "Perfect theory + execution." }
+        };
+
+        return { ...ranks[rankName], score, penaltyReason };
+      }
+
+      static getLegionRank(merit = 0) {
+        const thresholds = [100, 250, 500, 900, 1500];
+        const rankOrder = ['Recruit', 'Legionary', 'Optio', 'Centurion', 'Tribunus', 'Legatus'];
+
+        let currentLevel = 0;
+        for (let i = 0; i < thresholds.length; i++) {
+          if (merit >= thresholds[i]) {
+            currentLevel = i + 1;
+          } else {
+            break;
+          }
+        }
+
+        const rankName = rankOrder[currentLevel];
+
+        const ranks = {
+          Recruit: { title: "Recruit", icon: "🌱" },
+          Legionary: { title: "Legionary", icon: "🛡️" },
+          Optio: { title: "Optio", icon: "⚔️" },
+          Centurion: { title: "Centurion", icon: "🦅" },
+          Tribunus: { title: "Tribunus", icon: "🏅" },
+          Legatus: { title: "Legatus", icon: "🏆" }
+        };
+
+        const currentIndex = currentLevel;
+        let nextRank = null;
+        let pointsNeeded = 0;
+
+        if (currentIndex < rankOrder.length - 1) {
+          nextRank = rankOrder[currentIndex + 1];
+          pointsNeeded = thresholds[currentIndex] - merit;
+          if (pointsNeeded < 0) pointsNeeded = 0;
+        }
+
+        return { 
+          ...ranks[rankName], 
+          merit, 
+          nextRank, 
+          pointsNeeded, 
+          rankOrder,
+          thresholds
+        };
+      }
+    }
+
+    class ChessTheoryApp {
+      constructor() {
+        this.game = new Chess();
+        this.playerColor = null;
+        this.aiSource = null;
+        this.selected = null;
+        this.lastMove = { from: null, to: null };
+        this.gameCount = 0;
+        this.evalCache = {};
+        this.lastAIMoveFEN = null;
+        this.playerMoves = 0;
+        this.topMoveChoices = 0;
+        this.hintUsed = false;
+        this.previousFEN = null;
+        this.lastPlayerUCI = null;
+        this.topGames = [];
+        this.recentGames = [];
+        this.pieceImages = pieceImages;
+
+        this.legionMerits = JSON.parse(localStorage.getItem('chessTheoryLegionMerits') || '{}');
+        this.gamesPlayed = parseInt(localStorage.getItem('chessTheoryGamesPlayed') || '0');
+        this.recentBattleRanks = JSON.parse(localStorage.getItem('chessTheoryRecentBattleRanks') || '[]');
+
+        this.demotionMessage = null;
+
+        this.render();
+      }
+
+      render() {
+        if (!this.aiSource) {
+          this.renderMenu();
+          return;
+        }
+        if (!this.playerColor) {
+          this.renderColorChoice();
+          return;
+        }
+
+        this.renderBoard();
+        this.queryExplorer();
+
+        if (this.game.turn() !== this.playerColor) {
+          const currentFEN = this.game.fen();
+          if (this.lastAIMoveFEN !== currentFEN) {
+            setTimeout(() => this.aiMove(), 800);
+          }
+        }
+      }
+
+      renderMenu() {
+        const masterMerit = this.legionMerits.master_merit || 0;
+        const clubMerit = this.legionMerits.lichess_merit || 0;
+        const masterLegion = Scoring.getLegionRank(masterMerit);
+        const clubLegion = Scoring.getLegionRank(clubMerit);
+
+        document.getElementById('app').innerHTML = `
+          <div class="menu">
+            <h2>Lines of the Legion</h2>
+            <p style="max-width: 500px; margin: 0 auto 20px; line-height: 1.8; font-size: 1.1rem; color: #eee;">
+              Hold the line. Survive the opening battle drawn from real games — until theory ends and novelty begins.
+            </p>
+            <div class="stats-display">
+              <div class="legion-section">
+                <strong>🏆 Masters Legion:</strong> ${masterLegion.title} (${masterMerit} merit) ${masterLegion.icon}<br>
+                ${masterLegion.nextRank ? `${masterLegion.title} → ${masterLegion.nextRank}: ${masterLegion.pointsNeeded} more merit` : 'Highest rank achieved!'}
+              </div>
+              <div class="rank-progress">
+                ${masterLegion.rankOrder.map(r => `<div class="rank-step ${r === masterLegion.title ? 'active' : ''}">${r}</div>`).join('')}
+              </div>
+              <div class="legion-section" style="margin-top: 20px;">
+                <strong>♟️ Club Legion:</strong> ${clubLegion.title} (${clubMerit} merit) ${clubLegion.icon}<br>
+                ${clubLegion.nextRank ? `${clubLegion.title} → ${clubLegion.nextRank}: ${clubLegion.pointsNeeded} more merit` : 'Highest rank achieved!'}
+              </div>
+              <div class="rank-progress">
+                ${clubLegion.rankOrder.map(r => `<div class="rank-step ${r === clubLegion.title ? 'active' : ''}">${r}</div>`).join('')}
+              </div>
+              <div style="margin-top: 20px;">
+                ⚔️ Battles Fought: ${this.gamesPlayed}
+              </div>
+            </div>
+            <p style="font-size: 1.1rem; color: #eee; font-weight: 600; margin: 10px 0;">
+              I want to fight a,
+            </p>
+            <button id="masterBtn" class="menu-btn">🏆 Master</button>
+            <button id="lichessBtn" class="menu-btn">♟️ Club Rookie</button>
+            <button id="resetBtn" class="menu-btn" style="max-width: 200px; background: linear-gradient(135deg, #e74c3c, #c0392b); box-shadow: 0 6px 0 #8b2e24, 0 8px 20px rgba(231, 76, 60, 0.3); margin-top: 20px;">🔄 Reset Stats</button>
+            <div class="author-credit">
+              Author: Srinivas Kulkarni
+            </div>
+          </div>
+        `;
+
+        document.getElementById('masterBtn').onclick = () => this.selectSource('master');
+        document.getElementById('lichessBtn').onclick = () => this.selectSource('lichess');
+        document.getElementById('resetBtn').onclick = () => this.resetStats();
+      }
+
+      renderColorChoice() {
+        document.getElementById('app').innerHTML = `
+          <div class="menu">
+            <h2>Play As</h2>
+            <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+              <button id="whiteBtn" class="menu-btn" style="max-width: 140px; background: #eee; color: #222;">White</button>
+              <button id="blackBtn" class="menu-btn" style="max-width: 140px; background: #444;">Black</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('whiteBtn').onclick = () => this.selectColor('w');
+        document.getElementById('blackBtn').onclick = () => this.selectColor('b');
+      }
+
+      renderBoard() {
+        const board = this.game.board();
+        const isFlipped = this.playerColor === 'b';
+        const renderedBoard = isFlipped ? board.slice().reverse().map(r => r.slice().reverse()) : board;
+        const isPlayerTurn = this.game.turn() === this.playerColor;
+
+        document.getElementById('app').innerHTML = `
+          <div class="game-container">
+            <div class="board-wrapper" id="board"></div>
+            <div class="game-count" id="gameCount">This battle position was reached ${this.gameCount.toLocaleString()} times in history.</div>
+            <div id="endSummary" class="end-summary" style="display: none;"></div>
+            <div id="theoryMessage" class="theory-message" style="display: none;"></div>
+            <div class="controls">
+              <button class="btn" onclick="location.reload()">🔄 New Battle</button>
+              <button class="btn" id="hintBtn" ${!isPlayerTurn || this.hintUsed ? 'disabled' : ''}>
+                ${this.hintUsed ? '✓ Commander Consulted' : '🎖️ Consult the Commander'}
+              </button>
+            </div>
+          </div>
+        `;
+
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+
+        renderedBoard.forEach((row, r) => {
+          row.forEach((square, c) => {
+            const actualRow = isFlipped ? 7 - r : r;
+            const actualCol = isFlipped ? 7 - c : c;
+            const sqName = 'abcdefgh'[actualCol] + (8 - actualRow);
+            const isLight = (actualRow + actualCol) % 2 === 0;
+            const isSelected = this.selected === sqName;
+            const isLastMove = this.lastMove.from === sqName || this.lastMove.to === sqName;
+
+            const div = document.createElement('div');
+            div.className = `square ${isLight ? 'light' : 'dark'} ${isSelected ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${!isPlayerTurn ? 'disabled' : ''}`;
+            div.onclick = () => this.handleClick(actualRow, actualCol);
+
+            if (square) {
+              const img = document.createElement('img');
+              img.src = this.pieceImages[square.color + square.type];
+              img.className = 'piece';
+              div.appendChild(img);
+            }
+            boardEl.appendChild(div);
+          });
+        });
+
+        if (isPlayerTurn) {
+          document.getElementById('hintBtn').onclick = () => this.getHints();
+        }
+      }
+
+      selectSource(source) {
+        this.aiSource = source;
+        this.render();
+      }
+
+      selectColor(color) {
+        this.playerColor = color;
+        this.hintUsed = false;
+        this.resetGameState();
+        this.render();
+      }
+
+      resetGameState() {
+        this.game.reset();
+        this.selected = null;
+        this.lastMove = { from: null, to: null };
+        this.gameCount = 0;
+        this.playerMoves = 0;
+        this.topMoveChoices = 0;
+        this.hintUsed = false;
+        this.previousFEN = null;
+        this.lastPlayerUCI = null;
+        this.lastAIMoveFEN = null;
+        this.topGames = [];
+        this.recentGames = [];
+      }
+
+      resetStats() {
+        if (confirm('Are you sure you want to reset all your stats? This cannot be undone.')) {
+          localStorage.removeItem('chessTheoryLegionMerits');
+          localStorage.removeItem('chessTheoryGamesPlayed');
+          localStorage.removeItem('chessTheoryRecentBattleRanks');
+          this.legionMerits = {};
+          this.gamesPlayed = 0;
+          this.recentBattleRanks = [];
+          this.render();
+        }
+      }
+
+      async queryExplorer() {
+        const fen = this.game.fen();
+        try {
+          const data = await ChessAPI.queryExplorer(this.aiSource, fen);
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+
+          const countEl = document.getElementById('gameCount');
+          if (countEl) {
+            countEl.textContent = `This battle position was reached ${totalGames.toLocaleString()} times in history.`;
+          }
+
+          this.previousFEN = null;
+          this.lastPlayerUCI = null;
+        } catch (e) {
+          console.error('Explorer query failed:', e);
+        }
+      }
+
+      async handleClick(row, col) {
+        if (this.game.turn() !== this.playerColor || this.game.game_over()) return;
+
+        const square = 'abcdefgh'[col] + (8 - row);
+
+        if (this.selected) {
+          const moveOptions = { from: this.selected, to: square, promotion: 'q' };
+          const preMoveFEN = this.game.fen();
+          const move = this.game.move(moveOptions);
+
+          if (move) {
+            this.lastMove = { from: move.from, to: move.to };
+            this.playerMoves++;
+            const moveUCI = move.from + move.to + (move.promotion || '');
+            await this.checkMoveQuality(preMoveFEN, moveUCI);
+
+            this.previousFEN = preMoveFEN;
+            this.lastPlayerUCI = moveUCI;
+            this.selected = null;
+
+            document.getElementById('theoryMessage').style.display = 'none';
+            this.render();
+            return;
+          }
+          this.selected = null;
+        }
+
+        const piece = this.game.get(square);
+        if (piece && piece.color === this.playerColor) {
+          this.selected = square;
+        }
+
+        this.render();
+      }
+
+      async checkMoveQuality(prevFEN, playerUCI) {
+        try {
+          const data = await ChessAPI.queryExplorer(this.aiSource, prevFEN);
+          if (data.moves && data.moves.length > 0) {
+            const isTop3 = data.moves.slice(0, 3).some(m => m.uci === playerUCI);
+            if (isTop3) this.topMoveChoices++;
+          }
+        } catch (e) {
+          console.log('Move quality check failed:', e);
+        }
+      }
+
+      async getHints() {
+        if (this.hintUsed) return;
+
+        const fen = this.game.fen();
+        try {
+          const data = await ChessAPI.queryExplorer(this.aiSource, fen);
+          const topMoves = data.moves ? data.moves.slice(0, 5) : [];
+
+          let commanderText = '';
+          if (topMoves.length === 0) {
+            commanderText = '<em>No moves available in database.</em>';
+          } else {
+            const moveNames = topMoves.map(m => m.san);
+            const first = moveNames[0];
+            const second = moveNames[1];
+            const others = moveNames.slice(2);
+
+            commanderText = `🎖️ <strong>Commander speaks:</strong><br><br>
+            "Soldier, I have walked this battlefield before. I have seen this position play out many times.`;
+            commanderText += ` If you wish to strike directly, march with <strong>${first}</strong> — the most proven assault.`;
+            if (second) commanderText += ` Or choose <strong>${second}</strong>, a solid formation trusted by many commanders.`;
+            if (others.length > 0) {
+              const othersList = others.join(', ');
+              const pathWord = others.length === 1 ? 'path exists' : 'paths exist';
+              commanderText += ` From the war journals, other ${pathWord}: <strong>${othersList}</strong> — each leads to a different kind of struggle.`;
+            }
+            commanderText += ` I cannot fight for you. The next move is yours. Good luck."`;
+          }
+
+          const msgEl = document.getElementById('theoryMessage');
+          msgEl.innerHTML = `<div class="commander-text">${commanderText}</div>`;
+          msgEl.style.display = 'block';
+          this.hintUsed = true;
+
+          const hintBtn = document.getElementById('hintBtn');
+          if (hintBtn) {
+            hintBtn.disabled = true;
+            hintBtn.textContent = '✓ Commander Consulted';
+          }
+        } catch (error) {
+          const msgEl = document.getElementById('theoryMessage');
+          msgEl.innerHTML = '<em>Unable to fetch hints – try again.</em>';
+          msgEl.style.display = 'block';
+        }
+      }
+
+      async aiMove() {
+        const fen = this.game.fen();
+
+        if (this.lastAIMoveFEN === fen) {
+          return;
+        }
+
+        this.lastAIMoveFEN = fen;
+
+        try {
+          const data = await ChessAPI.queryExplorer(this.aiSource, fen);
+
+          const totalGames = (data.white || 0) + (data.draws || 0) + (data.black || 0);
+          this.gameCount = totalGames;
+
+          const minGames = this.aiSource === 'master' ? 5 : 20;
+          if (totalGames < minGames || !data.moves || data.moves.length === 0) {
+            const rawEval = await ChessAPI.getEvaluation(fen, this.evalCache);
+            this.finalPlayerEval = Scoring.getPlayerEval(rawEval, this.playerColor);
+            this.updateLegionMerit();
+            const gamesData = await ChessAPI.queryGames(this.aiSource, fen);
+            this.topGames = gamesData.topGames;
+            this.recentGames = gamesData.recentGames;
+            this.stopGameDueToThinTheory();
+            return;
+          }
+
+          let rand = Math.random() * totalGames;
+          let cumulative = 0;
+          let selectedMove = data.moves[0];
+
+          for (const move of data.moves) {
+            cumulative += move.white + move.draws + move.black;
+            if (rand <= cumulative) {
+              selectedMove = move;
+              break;
+            }
+          }
+
+          let move;
+          if (selectedMove.san === 'O-O' || selectedMove.san === 'O-O-O') {
+            move = this.game.move(selectedMove.san);
+          } else {
+            const uci = selectedMove.uci;
+            const from = uci.slice(0, 2);
+            const to = uci.slice(2, 4);
+            const promotion = uci.length === 5 ? uci[4] : null;
+            move = this.game.move({ from, to, promotion });
+          }
+
+          if (move) {
+            this.lastMove = { from: move.from, to: move.to };
+            await ChessAPI.getEvaluation(fen, this.evalCache);
+            this.render();
+            this.queryExplorer();
+          }
+        } catch (error) {
+          console.error('aiMove error:', error);
+        }
+      }
+
+      async stopGameDueToThinTheory() {
+        const rawEval = await ChessAPI.getEvaluation(this.game.fen(), this.evalCache);
+        this.finalPlayerEval = Scoring.getPlayerEval(rawEval, this.playerColor);
+
+        const { score, penaltyReason } = Scoring.getTotalScore(this.playerMoves, this.topMoveChoices, this.finalPlayerEval);
+        const battleRank = Scoring.getBattleRank(score, this.finalPlayerEval, penaltyReason);
+        const moveQuality = Scoring.getMoveQuality(this.topMoveChoices, this.playerMoves);
+        const displayEval = this.finalPlayerEval > 0 ? '+' + this.finalPlayerEval.toFixed(1) : this.finalPlayerEval.toFixed(1);
+
+        // Update recent battle ranks
+        this.recentBattleRanks.push(battleRank.title);
+        if (this.recentBattleRanks.length > 5) {
+          this.recentBattleRanks.shift();
+        }
+        localStorage.setItem('chessTheoryRecentBattleRanks', JSON.stringify(this.recentBattleRanks));
+
+        const gamesToShow = this.aiSource === 'master' ? this.topGames : this.recentGames;
+
+        const summaryEl = document.getElementById('endSummary');
+        const msgEl = document.getElementById('theoryMessage');
+
+        let demotionHtml = '';
+        if (this.demotionMessage) {
+          demotionHtml = `<div class="demotion-message">${this.demotionMessage}</div>`;
+          this.demotionMessage = null;
+        }
+
+        let penaltyMsg = '';
+        if (battleRank.penaltyReason) {
+          penaltyMsg = `<div style="font-size: 0.95rem; color: #e74c3c; margin-top: 10px;">
+            Penalty Applied: ${battleRank.penaltyReason}
+          </div>`;
+        }
+
+        summaryEl.innerHTML = `
+          ${demotionHtml}
+          <div class="score-breakdown">
+            <div>Moves: ${this.playerMoves}</div>
+            <div>Quality: ${moveQuality}%</div>
+            <div>Eval: ${displayEval}</div>
+          </div>
+          <div class="end-rank-title">
+            ${battleRank.icon} ${battleRank.title}
+          </div>
+          ${penaltyMsg}
+          <div style="font-size: 1.5rem; font-weight: bold; color: #81b64c; margin: 10px 0;">Battle Score: ${battleRank.score}/100</div>
+          <div style="margin: 20px 0; padding: 15px; background: rgba(50, 50, 50, 0.6); border-radius: 10px;">
+            <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">"${battleRank.msg}"</div>
+            <div style="font-size: 0.95rem; color: #ccc;"><em>${battleRank.sub}</em></div>
+          </div>
+          <div class="rank-progress">
+            ${['Levy', 'Hastatus', 'Principes', 'Triarius', 'Imperator'].map(r => `<div class="rank-step ${r === battleRank.title ? 'active' : ''}">${r}</div>`).join('')}
+          </div>
+          <div style="font-size: 0.9rem; color: #aaa; margin-top: 12px;">
+            Tip: Deep theory + balanced position can reach Triarius & Imperator!
+          </div>
+        `;
+        summaryEl.style.display = 'block';
+
+        let html = `<strong>Games in this position:</strong> ${this.gameCount.toLocaleString()}<br><br>`;
+        if (gamesToShow.length > 0) {
+          gamesToShow.forEach((game, idx) => {
+            const whitePlayer = game.white?.name || 'Unknown';
+            const blackPlayer = game.black?.name || 'Unknown';
+            const whiteRating = game.white?.rating || '?';
+            const blackRating = game.black?.rating || '?';
+            const year = game.year || '';
+            const gameId = game.id || '';
+            const gameUrl = gameId ? `https://lichess.org/${gameId}` : '#';
+
+            let resultText = '';
+            let resultColor = '#aaa';
+            if (game.winner === 'white') {
+              resultText = '1-0 White wins';
+              resultColor = '#fff';
+            } else if (game.winner === 'black') {
+              resultText = '0-1 Black wins';
+              resultColor = '#ccc';
+            } else {
+              resultText = '½-½ Draw';
+              resultColor = '#f1c40f';
+            }
+
+            html += `<div class="game-list-item">
+              <strong>${idx + 1}.</strong> ${whitePlayer} (${whiteRating}) – ${blackPlayer} (${blackRating})${year ? `, ${year}` : ''}<br>
+              <span style="color: ${resultColor};">${resultText}</span><br>
+              <a href="${gameUrl}" target="_blank" style="color: #81b64c; text-decoration: none;">View on Lichess ↗</a>
+            </div>`;
+          });
+        } else {
+          html += '<em>No games found in this position.</em>';
+        }
+
+        msgEl.innerHTML = html;
+        msgEl.style.display = 'block';
+      }
+
+      updateLegionMerit() {
+        const meritKey = `${this.aiSource}_merit`;
+        const { score } = Scoring.getTotalScore(this.playerMoves, this.topMoveChoices, this.finalPlayerEval);
+
+        this.legionMerits[meritKey] = (this.legionMerits[meritKey] || 0) + score;
+        localStorage.setItem('chessTheoryLegionMerits', JSON.stringify(this.legionMerits));
+
+        this.gamesPlayed++;
+        localStorage.setItem('chessTheoryGamesPlayed', this.gamesPlayed.toString());
+
+        const currentMerit = this.legionMerits[meritKey] || 0;
+        const legionInfo = Scoring.getLegionRank(currentMerit);
+
+        if (legionInfo.title !== 'Recruit') {
+          const levyCount = this.recentBattleRanks.filter(r => r === 'Levy').length;
+
+          if (levyCount >= 3) {
+            const rankOrder = legionInfo.rankOrder;
+            const currentIndex = rankOrder.indexOf(legionInfo.title);
+
+            if (currentIndex > 0) {
+              const newRank = rankOrder[currentIndex - 1];
+              const newMerit = currentIndex === 1 ? 0 : legionInfo.thresholds[currentIndex - 2];
+
+              this.legionMerits[meritKey] = newMerit;
+              localStorage.setItem('chessTheoryLegionMerits', JSON.stringify(this.legionMerits));
+
+              this.recentBattleRanks = [];
+              localStorage.setItem('chessTheoryRecentBattleRanks', JSON.stringify(this.recentBattleRanks));
+
+              this.demotionMessage = `Demoted to <strong>${newRank}</strong> due to repeated poor performance (3+ Levy ranks in last 5 battles).<br>Merit reset to ${newMerit}. Prove your worth again, soldier!`;
+            }
+          }
+        }
+      }
+    }
+
+    new ChessTheoryApp();
+  </script>
+</body>
+</html>
