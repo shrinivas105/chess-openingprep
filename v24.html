@@ -314,7 +314,6 @@
       bq: "https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
       bk: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg",
     };
-
     class ChessTheoryApp {
       constructor() {
         this.game = new Chess();
@@ -339,39 +338,38 @@
         this.gamesPlayed = parseInt(localStorage.getItem('chessTheoryGamesPlayed') || '0');
         this.renderMenu();
       }
-
       getPlayerEval(raw) {
         return this.playerColor === 'b' ? -raw : raw;
       }
-
       getMoveQuality() {
         return this.playerMoves > 0 ? (this.topMoveChoices / this.playerMoves) * 100 : 0;
       }
-
       getTotalScore() {
-        // Base score calculation based on "No False Glory" principle
-        const moveScore = Math.min(6, this.playerMoves) * 4 * 0.4; // 40% weight, capped at 6 moves
-        const qualityScore = this.getMoveQuality() * 0.3; // 30% weight
-        const evalScore = this.finalPlayerEval < -4.0 ? 0 : Math.max(0, (this.finalPlayerEval + 3) * 5) * 0.3; // 30% weight, 0 if blunder
+        // NEW FAIR SCORING SYSTEM
+        const moveScore = this.playerMoves * 4 * 0.25; // up to 40 pts for 10 moves
+        const qualityScore = this.getMoveQuality() * 0.40; // max 40 pts
+        const evalScore = this.finalPlayerEval < -3.0 ? 0 : Math.max(0, (this.finalPlayerEval + 3) * 12 * 0.35); // generous for +0.5 to +3.0
         const baseScore = moveScore + qualityScore + evalScore;
 
-        // Apply penalty multiplier based on eval
         let multiplier = 1.0;
         let penaltyReason = '';
-        if (this.finalPlayerEval < -4.0) {
-          multiplier = 0.25; // Catastrophic blunder (Levy ceiling)
-          penaltyReason = 'Catastrophic blunder! Your position collapsed (eval < -4.0).';
-        } else if (this.finalPlayerEval >= -4.0 && this.finalPlayerEval < -2.5) {
-          multiplier = 0.65; // Heavy disadvantage (Hastatus ceiling)
-          penaltyReason = 'Heavy disadvantage! You lost ground (eval -4.0 to -2.5).';
+        if (this.finalPlayerEval < -3.0) {
+          multiplier = 0.3;
+          penaltyReason = 'Catastrophic blunder! Position collapsed (eval < -3.0).';
+        } else if (this.finalPlayerEval >= -3.0 && this.finalPlayerEval < -1.5) {
+          multiplier = 0.8;
+          penaltyReason = 'Significant disadvantage (eval -3.0 to -1.5).';
+        }
+
+        if (this.getMoveQuality() < 90) {
+          penaltyReason += penaltyReason ? ' Also aim for 90%+ accuracy.' : 'Aim for 90%+ theory accuracy.';
         }
 
         const totalScore = baseScore * multiplier;
-        const finalScore = Math.min(Math.round(totalScore), multiplier === 0.25 ? 25 : multiplier === 0.65 ? 45 : 100);
+        const finalScore = Math.min(Math.round(totalScore), multiplier === 0.3 ? 30 : multiplier === 0.8 ? 60 : 100);
 
         return { score: finalScore, penaltyReason };
       }
-
       updateBestScore() {
         const scoreKey = `${this.aiSource}_best`;
         const currentScore = this.getTotalScore().score;
@@ -382,12 +380,11 @@
         this.gamesPlayed++;
         localStorage.setItem('chessTheoryGamesPlayed', this.gamesPlayed.toString());
       }
-
       async checkMoveQuality(prevFEN, playerUCI) {
         const url = this.aiSource === 'master'
           ? `https://explorer.lichess.ovh/masters?variant=standard&fen=${encodeURIComponent(prevFEN)}&topGames=0&moves=5`
           : `https://explorer.lichess.ovh/lichess?variant=standard&fen=${encodeURIComponent(prevFEN)}&topGames=0&moves=5&ratings=1600,1800,2000,2200,2500`;
-
+       
         try {
           const response = await fetch(url);
           if (response.ok) {
@@ -401,17 +398,15 @@
           console.log('Move quality check failed');
         }
       }
-
       getRank() {
         const { score: totalScore, penaltyReason } = this.getTotalScore();
-        const thresholds = this.aiSource === 'master' ? [85, 65, 45, 25] : [90, 70, 50, 30];
+        const thresholds = this.aiSource === 'master' ? [85, 75, 65, 45] : [90, 80, 65, 40];
+       
         let rankName;
-
-        // Adjust rank based on score and eval penalty
-        if (this.finalPlayerEval < -4.0) {
-          rankName = 'Levy'; // Catastrophic blunder caps at Levy
-        } else if (this.finalPlayerEval >= -4.0 && this.finalPlayerEval < -2.5) {
-          rankName = totalScore >= thresholds[3] ? 'Hastatus' : 'Levy'; // Heavy disadvantage caps at Hastatus
+        if (this.finalPlayerEval < -3.0) {
+          rankName = 'Levy';
+        } else if (this.finalPlayerEval >= -3.0 && this.finalPlayerEval < -1.5) {
+          rankName = totalScore >= thresholds[3] ? 'Hastatus' : 'Levy';
         } else {
           if (totalScore >= thresholds[0]) rankName = 'Grand Strategos';
           else if (totalScore >= thresholds[1]) rankName = 'Triarius';
@@ -419,54 +414,25 @@
           else if (totalScore >= thresholds[3]) rankName = 'Hastatus';
           else rankName = 'Levy';
         }
-
         const ranks = {
-          Levy: {
-            icon: "🪶",
-            title: "Levy",
-            msg: penaltyReason || "You barely stepped onto the battlefield. Blunders reset your rank!",
-            sub: "Perfect theory means nothing if execution fails. Fix those blunders!"
-          },
-          Hastatus: {
-            icon: "🛡️",
-            title: "Hastatus",
-            msg: penaltyReason || "You held formation but lost ground. A soldier, not a commander.",
-            sub: "Theory got you here, but tactical errors held you back."
-          },
-          Centurion: {
-            icon: "⚔️",
-            title: "Centurion",
-            msg: "You fought with structure and intent, holding the line against chaos.",
-            sub: "Solid theory and execution — now sharpen your tactics."
-          },
-          Triarius: {
-            icon: "🦅",
-            title: "Triarius",
-            msg: "A veteran presence, turning the tide with experience and calm.",
-            sub: "Mastery of theory and tactics — you're close to greatness."
-          },
-          'Grand Strategos': {
-            icon: "🏆",
-            title: "Grand Strategos",
-            msg: "Master of war, architect of victory. You shaped the battlefield!",
-            sub: "Theory and execution in perfect harmony. Domination achieved."
-          }
+          Levy: { icon: "🪶", title: "Levy", msg: penaltyReason || "You barely stepped onto the battlefield.", sub: "Blunders reset your rank." },
+          Hastatus: { icon: "🛡️", title: "Hastatus", msg: penaltyReason || "Frontline soldier holding formation.", sub: "Good start — improve execution." },
+          Centurion: { icon: "⚔️", title: "Centurion", msg: "You commanded with structure and intent.", sub: "Solid theory and tactics." },
+          Triarius: { icon: "🦅", title: "Triarius", msg: "Veteran presence — turning the tide.", sub: "Excellent mastery of opening & position." },
+          'Grand Strategos': { icon: "🏆", title: "Grand Strategos", msg: "Master of war — architect of victory.", sub: "Perfect theory + execution." }
         };
-
         return { ...ranks[rankName], score: totalScore, penaltyReason };
       }
-
       getLegionRank() {
         const bestScore = this.bestScores[`${this.aiSource}_best`] || 0;
-        const thresholds = this.aiSource === 'master' ? [85, 65, 45, 25] : [90, 70, 50, 30];
-
+        const thresholds = this.aiSource === 'master' ? [85, 75, 65, 45] : [90, 80, 65, 40];
+       
         let rankName;
         if (bestScore >= thresholds[0]) rankName = 'Grand Strategos';
         else if (bestScore >= thresholds[1]) rankName = 'Triarius';
         else if (bestScore >= thresholds[2]) rankName = 'Centurion';
         else if (bestScore >= thresholds[3]) rankName = 'Hastatus';
         else rankName = 'Levy';
-
         const ranks = {
           Levy: { icon: "🪶", title: "Levy" },
           Hastatus: { icon: "🛡️", title: "Hastatus" },
@@ -474,7 +440,7 @@
           Triarius: { icon: "🦅", title: "Triarius" },
           'Grand Strategos': { icon: "🏆", title: "Grand Strategos" }
         };
-
+       
         let nextRank = null;
         let pointsNeeded = 0;
         const rankOrder = ['Levy', 'Hastatus', 'Centurion', 'Triarius', 'Grand Strategos'];
@@ -484,17 +450,17 @@
           const nextThreshold = thresholds[rankOrder.length - 2 - currentIndex];
           pointsNeeded = nextThreshold - bestScore;
         }
-
+       
         return { ...ranks[rankName], score: bestScore, nextRank, pointsNeeded };
       }
-
       renderMenu() {
         const app = document.getElementById('app');
         const bestMaster = this.bestScores.master_best || 0;
         const bestClub = this.bestScores.lichess_best || 0;
+       
         const masterLegion = this.getLegionRankForScore(bestMaster, 'master');
         const clubLegion = this.getLegionRankForScore(bestClub, 'lichess');
-
+       
         app.innerHTML = `
           <div class="menu">
             <h2>Survive Till Novelty</h2>
@@ -521,17 +487,15 @@
         document.getElementById('lichessBtn').addEventListener('click', () => this.selectSource('lichess'));
         document.getElementById('resetBtn').addEventListener('click', () => this.resetStats());
       }
-
       getLegionRankForScore(score, source) {
-        const thresholds = source === 'master' ? [85, 65, 45, 25] : [90, 70, 50, 30];
-
+        const thresholds = source === 'master' ? [85, 75, 65, 45] : [90, 80, 65, 40];
+       
         let rankName;
         if (score >= thresholds[0]) rankName = 'Grand Strategos';
         else if (score >= thresholds[1]) rankName = 'Triarius';
         else if (score >= thresholds[2]) rankName = 'Centurion';
         else if (score >= thresholds[3]) rankName = 'Hastatus';
         else rankName = 'Levy';
-
         const ranks = {
           Levy: { icon: "🪶", title: "Levy" },
           Hastatus: { icon: "🛡️", title: "Hastatus" },
@@ -541,7 +505,6 @@
         };
         return ranks[rankName];
       }
-
       resetStats() {
         if (confirm('Are you sure you want to reset all your stats? This cannot be undone.')) {
           localStorage.removeItem('chessTheoryBestScores');
@@ -551,7 +514,6 @@
           this.renderMenu();
         }
       }
-
       renderColorChoice() {
         const app = document.getElementById('app');
         app.innerHTML = `
@@ -566,7 +528,6 @@
         document.getElementById('whiteBtn').addEventListener('click', () => this.selectColor('w'));
         document.getElementById('blackBtn').addEventListener('click', () => this.selectColor('b'));
       }
-
       render() {
         if (!this.aiSource) {
           this.renderMenu();
@@ -577,7 +538,6 @@
           this.queryExplorer();
         }
       }
-
       async queryExplorer() {
         const fen = this.game.fen();
         try {
@@ -641,7 +601,6 @@
           console.error('Explorer query failed:', e);
         }
       }
-
       renderBoard() {
         const board = this.game.board();
         const isFlipped = this.playerColor === 'b';
@@ -690,7 +649,6 @@
           setTimeout(() => this.aiMove(), 600);
         }
       }
-
       async getHints() {
         if (this.hintUsed) return;
         const fen = this.game.fen();
@@ -743,18 +701,15 @@
           msgEl.style.display = 'block';
         }
       }
-
       selectSource(source) {
         this.aiSource = source;
         this.render();
       }
-
       selectColor(color) {
         this.playerColor = color;
         this.hintUsed = false;
         this.render();
       }
-
       async handleClick(row, col) {
         if (this.game.turn() !== this.playerColor || this.game.game_over()) return;
         const square = 'abcdefgh'[col] + (8 - row);
@@ -766,10 +721,14 @@
             if (move) {
               this.lastMove = { from: move.from, to: move.to };
               this.playerMoves++;
+             
               const moveUCI = move.from + move.to + (move.promotion || '');
+             
               await this.checkMoveQuality(preMoveFEN, moveUCI);
+             
               this.lastPlayerUCI = moveUCI;
               this.previousFEN = preMoveFEN;
+             
               this.selected = null;
               const msgEl = document.getElementById('theoryMessage');
               msgEl.style.display = 'none';
@@ -785,7 +744,6 @@
         }
         this.render();
       }
-
       async aiMove() {
         const fen = this.game.fen();
         if (this.lastAIMoveFEN !== fen) return;
@@ -868,7 +826,6 @@
           console.error('AI move error:', error);
         }
       }
-
       async fetchEval() {
         const fen = this.game.fen();
         if (this.evalCache[fen] !== undefined) {
@@ -894,7 +851,6 @@
           console.log('Eval unavailable');
         }
       }
-
       stopGameDueToThinTheory() {
         const summaryEl = document.getElementById('endSummary');
         const battleRank = this.getRank();
@@ -903,7 +859,7 @@
         const moveQuality = this.getMoveQuality().toFixed(0);
         const displayEval = this.finalPlayerEval > 0 ? '+' + this.finalPlayerEval.toFixed(1) : this.finalPlayerEval.toFixed(1);
         const rankOrder = ['Levy', 'Hastatus', 'Centurion', 'Triarius', 'Grand Strategos'];
-
+       
         let progressMsg = '';
         if (legionRank.nextRank && legionRank.pointsNeeded > 0) {
           progressMsg = `<div style="font-size: 0.95rem; color: #f39c12; margin-top: 10px; font-style: italic;">
@@ -914,14 +870,14 @@
             You have achieved the highest Legion rank!
           </div>`;
         }
-
+       
         let penaltyMsg = '';
         if (battleRank.penaltyReason) {
           penaltyMsg = `<div style="font-size: 0.95rem; color: #e74c3c; margin-top: 10px;">
             Penalty Applied: ${battleRank.penaltyReason}
           </div>`;
         }
-
+       
         summaryEl.innerHTML = `
           <div class="score-breakdown">
             <div>Moves: ${this.playerMoves}</div>
@@ -947,6 +903,9 @@
           <div class="rank-label">Your Legion Standing</div>
           <div class="rank-msg">"${battleRank.msg}"</div>
           <div class="rank-sub"><em>${battleRank.sub}</em></div>
+          <div style="font-size: 0.9rem; color: #aaa; margin-top: 12px;">
+            Tip: Deep theory + balanced position can now reach Triarius & Grand Strategos!
+          </div>
         `;
         summaryEl.style.display = 'block';
         const msgEl = document.getElementById('theoryMessage');
@@ -986,7 +945,6 @@
         msgEl.style.display = 'block';
       }
     }
-
     const app = new ChessTheoryApp();
   </script>
 </body>
